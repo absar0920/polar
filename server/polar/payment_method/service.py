@@ -10,7 +10,9 @@ from polar.integrations.stripe.service import stripe as stripe_service
 from polar.integrations.stripe.utils import get_expandable_id
 from polar.models import Checkout, Customer, Order, PaymentMethod, Subscription
 from polar.models.subscription import SubscriptionStatus
+from polar.models.webhook_endpoint import WebhookEventType
 from polar.postgres import AsyncSession
+from polar.worker import enqueue_job
 
 from .repository import PaymentMethodRepository
 
@@ -219,6 +221,12 @@ class PaymentMethodService:
 
         repository = PaymentMethodRepository.from_session(session)
         await repository.soft_delete(payment_method)
+
+        enqueue_job(
+            "customer.webhook",
+            WebhookEventType.customer_state_changed,
+            payment_method.customer_id,
+        )
 
 
 payment_method = PaymentMethodService()
